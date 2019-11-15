@@ -10,5 +10,6 @@ export default {
 	// webview_url: "http://qdzyxm.hulalaedu.com/student/contentplayer/",	
 	// login_url: "http://qdzyxm.hulalaedu.com/",
 	account: "18561906086",
-	pass: "01nihaoma"
+	pass: "01nihaoma",
+	pageCount: 10
 }

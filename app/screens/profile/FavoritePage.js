@@ -15,6 +15,8 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,
+  FlatList,
+  BackHandler
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Entypo';
 import HJ_Utils from '../../utils/HJUtils'
@@ -63,8 +65,11 @@ class FavoritePage extends React.Component {
     this.state = {
       loading: true,
       favorites: [], 
+      curPage: 0,
     }
 
+    this.onLoadMoreItems = this.onLoadMoreItems.bind(this);
+    this.makeElem = this.makeElem.bind(this);
   }
 
 
@@ -74,6 +79,7 @@ class FavoritePage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
 
     var storage = await HJ_Utils.getStorage()
 
@@ -85,7 +91,9 @@ class FavoritePage extends React.Component {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        id: storage.user.userId
+        id: storage.user.userId,
+        pid: 0,
+        pcnt: config.pageCount
       })
     }).then(async data => {       
       var ret = await data.json();
@@ -99,9 +107,25 @@ class FavoritePage extends React.Component {
     HJ_Utils.log(5, "-- FavoritePage componentDidMount favorites : ", favorites);
 
     this.setState({
+      curPage: 0,
       favorites: favorites.data.favoriteData, 
       loading: false
     })
+  }
+
+
+  /**
+   * @method componentWillUnmount
+   * @description This function is called component is loaded.
+   */
+  async componentWillUnmount() {
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    this.props.navigation.goBack(); // works best when the goBack is async
+    return true;
   }
 
 
@@ -109,6 +133,63 @@ class FavoritePage extends React.Component {
     this.props.navigation.navigate('ResourcePageProfile', resource);
 
   }
+
+
+  async onLoadMoreItems(){
+    var { favorites, curPage } = this.state;   
+    
+    this.setState({
+      loading: true
+    })
+    
+    var storage = await HJ_Utils.getStorage()
+    
+    var morefavorites = await fetch(config.api_url+'/getFavorite', {
+      method: 'POST',
+      timeout: 5000,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: storage.user.userId,
+        pid: curPage+1,
+        pcnt: config.pageCount
+      })
+    }).then(async data => {       
+      var ret = await data.json();
+      HJ_Utils.log(5, "-- FavoritePage onLoadMoreItems ret : ", ret);
+      return ret;
+    })
+    .catch(e => {
+      HJ_Utils.log(5, "-- FavoritePage onLoadMoreItems e : ", e);
+      return null;
+    });
+    HJ_Utils.log(5, "-- FavoritePage onLoadMoreItems morefavorites : ", morefavorites, curPage);
+
+    this.setState({
+      curPage: curPage+1,
+      favorites: [...favorites, ...morefavorites.data.favoriteData], 
+      loading: false
+    })
+  }
+
+
+  makeElem( resource ){
+    var resourceElem = <TouchableOpacity style={styles.resourceBtn} onPress={this.goResourcePage.bind(this, resource)}>          
+                    <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
+                    <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
+                      <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
+                      <View style={styles.resourceDesc}>
+                        <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
+                        <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
+                      </View>
+                      <Text style={styles.resourceTimeTxt}>{resource.action_time}</Text>
+                    </View>                          
+                  </TouchableOpacity>
+    return resourceElem;
+  }
+
 
   
   render() {
@@ -118,24 +199,6 @@ class FavoritePage extends React.Component {
     if( this.state.loading ){
       loading = <Loading type="full"/>;
     }
-
-    var resourceElems = [];
-    for( var i=0; i<favorites.length; i++ ){
-      var resource = favorites[i];
-      var resourceElem = <TouchableOpacity key={'resource' + i} style={styles.resourceBtn} onPress={this.goResourcePage.bind(this, resource)}>          
-                          <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
-                          <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
-                            <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
-                            <View style={styles.resourceDesc}>
-                              <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
-                              <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
-                            </View>
-                            <Text style={styles.resourceTimeTxt}>{resource.action_time}</Text>
-                          </View>                          
-                        </TouchableOpacity>
-
-      resourceElems.push( resourceElem );
-    }    
 
     return (
       <View style={{width: LW, height:LH, flex: 1}}>
@@ -151,14 +214,21 @@ class FavoritePage extends React.Component {
           </TouchableOpacity>                  
         </View>
         
-        <ScrollView style={styles.mainContent}>
-
-          <View style={styles.resourceSectionElems}>
-            {resourceElems}
-          </View>
-
-        </ScrollView>
-        
+        <View style={styles.mainContent}>
+          <FlatList 
+            style={styles.resourceSectionElems}
+            onEndReached={this.onLoadMoreItems}
+            onEndReachedThreshold={0.01}
+            keyExtractor={(item, index)=>''+item.id + '_' + index}
+            data={favorites}
+            renderItem={({item})=>this.makeElem(item)}
+            bounces={false}
+            ListEmptyComponent={()=>
+              <View style={styles.emptyList}>
+                <Text style={styles.emptyListTxt}>没有收藏</Text>
+              </View>}
+          />
+        </View>          
 
         <View style={[styles.loading, {display: this.state.loading ? 'flex' : 'none', zIndex: this.state.loading ? 10000 : -1}]}>
           {loading}

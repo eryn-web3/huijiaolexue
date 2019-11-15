@@ -110,17 +110,24 @@ class HomePage extends React.Component {
     });
     HJ_Utils.log(5, "-- HomePage componentDidMount homeInfo : ", homeInfo);
 
-    this.setState({
-      recommendData: homeInfo.data.recommendData, 
-      subjectData: homeInfo.data.subjectData, 
-      bannerData: homeInfo.data.bannerData,
-      loading: false
-    })
-
-    var setFavorites = this.props.actions.FavoriteActions.setFavorites;
-    setFavorites( homeInfo.data.favoriteData );
-    var setLikes = this.props.actions.LikeActions.setLikes;
-    setLikes( homeInfo.data.likeData );
+    if( HJ_Utils.checkValid( homeInfo ) ){
+      this.setState({
+        recommendData: homeInfo.data.recommendData, 
+        subjectData: homeInfo.data.subjectData, 
+        bannerData: homeInfo.data.bannerData,
+        loading: false
+      })
+  
+      var setFavorites = this.props.actions.FavoriteActions.setFavorites;
+      setFavorites( homeInfo.data.favoriteData );
+      var setLikes = this.props.actions.LikeActions.setLikes;
+      setLikes( homeInfo.data.likeData );
+    } else {
+      this.setState({
+        loading:false
+      })
+    }
+    
   }
 
 

@@ -15,6 +15,8 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,
+  FlatList,
+  BackHandler
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Entypo';
 import HJ_Utils from '../../utils/HJUtils'
@@ -65,9 +67,14 @@ class HistoryPage extends React.Component {
       favorites: [], 
       menu: 'read',
       likes: [],
-      reads: []
+      reads: [],
+      curReadPage: 0,
+      curLikePage: 0
     }
 
+    this.onLoadMoreReadItems = this.onLoadMoreReadItems.bind(this);
+    this.onLoadMoreLikeItems = this.onLoadMoreLikeItems.bind(this);
+    this.makeElem = this.makeElem.bind(this);
   }
 
 
@@ -77,10 +84,11 @@ class HistoryPage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
 
     var storage = await HJ_Utils.getStorage()
 
-    var favorites = await fetch(config.api_url+'/getHistory', {
+    var reads = await fetch(config.api_url+'/getRead', {
       method: 'POST',
       timeout: 5000,
       headers: {
@@ -88,7 +96,9 @@ class HistoryPage extends React.Component {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        id: storage.user.userId
+        id: storage.user.userId,
+        pid: 0,
+        pcnt: config.pageCount
       })
     }).then(async data => {       
       var ret = await data.json();
@@ -99,13 +109,53 @@ class HistoryPage extends React.Component {
       HJ_Utils.log(5, "-- HistoryPage componentDidMount e : ", e);
       return null;
     });
-    HJ_Utils.log(5, "-- HistoryPage componentDidMount favorites : ", favorites);
+    HJ_Utils.log(5, "-- HistoryPage componentDidMount reads : ", reads);
+
+
+    var likes = await fetch(config.api_url+'/getLike', {
+      method: 'POST',
+      timeout: 5000,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: storage.user.userId,
+        pid: 0,
+        pcnt: config.pageCount
+      })
+    }).then(async data => {
+      var ret = await data.json();
+      HJ_Utils.log(5, "-- HistoryPage componentDidMount ret : ", ret);
+      return ret;
+    })
+    .catch(e => {
+      HJ_Utils.log(5, "-- HistoryPage componentDidMount e : ", e);
+      return null;
+    });
+    HJ_Utils.log(5, "-- HistoryPage componentDidMount likes : ", likes);
+
 
     this.setState({
-      likes: favorites.data.likeData, 
-      reads: favorites.data.readData, 
+      reads: reads.data.readData, 
+      likes: likes.data.likeData, 
       loading: false
     })
+  }
+
+
+  /**
+   * @method componentWillUnmount
+   * @description This function is called component is loaded.
+   */
+  async componentWillUnmount() {
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    this.props.navigation.goBack(); // works best when the goBack is async
+    return true;
   }
 
 
@@ -114,51 +164,145 @@ class HistoryPage extends React.Component {
 
   }
 
+
+  async onLoadMoreReadItems(){
+    var { reads, curReadPage } = this.state;    
+
+    this.setState({
+      loading: true
+    })
+
+    var storage = await HJ_Utils.getStorage()
+    
+    var moreReads = await fetch(config.api_url+'/getRead', {
+      method: 'POST',
+      timeout: 5000,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: storage.user.userId,
+        pid: curReadPage+1,
+        pcnt: config.pageCount
+      })
+    }).then(async data => {       
+      var ret = await data.json();
+      HJ_Utils.log(5, "-- HistoryPage onLoadMoreReadItems ret : ", ret);
+      return ret;
+    })
+    .catch(e => {
+      HJ_Utils.log(5, "-- HistoryPage onLoadMoreReadItems e : ", e);
+      return null;
+    });
+    HJ_Utils.log(5, "-- HistoryPage onLoadMoreReadItems moreReads : ", moreReads, curReadPage);
+
+    this.setState({
+      curReadPage: curReadPage+1,
+      reads: [...reads, ...moreReads.data.readData], 
+      loading: false
+    })
+  }
+
+
+  async onLoadMoreLikeItems(){
+    var { likes, curLikePage } = this.state;  
+    
+    this.setState({
+      loading: true
+    })
+
+    var storage = await HJ_Utils.getStorage()
+    
+    var moreLikes = await fetch(config.api_url+'/getLike', {
+      method: 'POST',
+      timeout: 5000,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        id: storage.user.userId,
+        pid: curLikePage+1,
+        pcnt: config.pageCount
+      })
+    }).then(async data => {       
+      var ret = await data.json();
+      HJ_Utils.log(5, "-- HistoryPage onLoadMoreLikeItems ret : ", ret);
+      return ret;
+    })
+    .catch(e => {
+      HJ_Utils.log(5, "-- HistoryPage onLoadMoreLikeItems e : ", e);
+      return null;
+    });
+    HJ_Utils.log(5, "-- HistoryPage onLoadMoreLikeItems moreLikes : ", moreLikes, curLikePage);
+
+    this.setState({
+      curLikePage: curLikePage+1,
+      likes: [...likes, ...moreLikes.data.likeData], 
+      loading: false
+    })
+  }
+
+
+  makeElem( resource ){
+    var resourceElem = <TouchableOpacity style={styles.resourceBtn} onPress={this.goResourcePage.bind(this, resource)}>          
+                    <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
+                    <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
+                      <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
+                      <View style={styles.resourceDesc}>
+                        <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
+                        <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
+                      </View>
+                      <Text style={styles.resourceTimeTxt}>{resource.action_time}</Text>
+                    </View>                          
+                  </TouchableOpacity>
+    return resourceElem;
+  }
+
   
   render() {
-    var { favorites, menu, reads, likes } = this.state;    
+    var { menu, reads, likes } = this.state;    
+
+    console.log('-- likes : ', likes);
 
     var loading = <Text> </Text>;
     if( this.state.loading ){
       loading = <Loading type="full"/>;
     }
 
-    var resourceElems = [];
+    var resourceElems = null;
     if( menu == 'read' ){
-      for( var i=0; i<reads.length; i++ ){
-        var resource = reads[i];
-        var resourceElem = <TouchableOpacity key={'resource' + i} style={styles.resourceBtn} onPress={this.goResourcePage.bind(this, resource)}>          
-                            <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
-                            <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
-                              <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
-                              <View style={styles.resourceDesc}>
-                                <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
-                                <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
-                              </View>
-                              <Text style={styles.resourceTimeTxt}>{resource.action_time}</Text>
-                            </View>                          
-                          </TouchableOpacity>
-  
-        resourceElems.push( resourceElem );
-      }    
+      resourceElems = <FlatList 
+                        style={styles.resourceSectionElems}
+                        onEndReached={this.onLoadMoreReadItems}
+                        onEndReachedThreshold={0.01}
+                        keyExtractor={(item, index)=>''+item.id + '_' + index}
+                        data={reads}
+                        renderItem={({item})=>this.makeElem(item)}
+                        bounces={false}
+                        ListEmptyComponent={()=>
+                          <View style={styles.emptyList}>
+                            <Text style={styles.emptyListTxt}>没有看过</Text>
+                          </View>}
+                      />
     } else if( menu == 'like' ) {
-      for( var i=0; i<likes.length; i++ ){
-        var resource = likes[i];
-        var resourceElem = <TouchableOpacity key={'resource' + i} style={styles.resourceBtn} onPress={this.goResourcePage.bind(this, resource)}>          
-                            <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
-                            <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
-                              <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
-                              <View style={styles.resourceDesc}>
-                                <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
-                                <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
-                              </View>
-                              <Text style={styles.resourceTimeTxt}>{resource.action_time}</Text>
-                            </View>                          
-                          </TouchableOpacity>
-  
-        resourceElems.push( resourceElem );
-      }    
+      resourceElems = <FlatList 
+                        style={styles.resourceSectionElems}
+                        onEndReached={this.onLoadMoreLikeItems}
+                        onEndReachedThreshold={0.01}
+                        keyExtractor={(item, index)=>''+item.id + '_' + index}
+                        data={likes}
+                        renderItem={({item})=>this.makeElem(item)}
+                        bounces={false}
+                        ListEmptyComponent={()=>
+                          <View style={styles.emptyList}>
+                            <Text style={styles.emptyListTxt}>没有赞过</Text>
+                          </View>}
+                      />
     }
+
+
     
 
     return (
@@ -180,13 +324,11 @@ class HistoryPage extends React.Component {
           </TouchableOpacity>                  
         </View>
         
-        <ScrollView style={styles.mainContent}>
+        <View style={styles.mainContent}>
 
-          <View style={styles.resourceSectionElems}>
-            {resourceElems}
-          </View>
+          {resourceElems}
 
-        </ScrollView>
+        </View>
         
 
         <View style={[styles.loading, {display: this.state.loading ? 'flex' : 'none', zIndex: this.state.loading ? 10000 : -1}]}>

@@ -85,7 +85,7 @@ export default StyleSheet.create({
   },
   resourceSectionElems: {    
     width: LW,
-    marginBottom: 10
+    height: LH-Layout.headerHeight,
   },
   moreBtn: {
     position: 'absolute',
@@ -128,5 +128,16 @@ export default StyleSheet.create({
   resourceImg: {
     width: 140, 
     height: 105,
-  }
+  },
+  emptyList: {
+    width: LW,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  emptyListTxt: {
+    fontSize: 16,
+    color: Colors.homeTextGreyColor,
+    textAlign: 'center'
+  },
 });

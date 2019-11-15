@@ -41,8 +41,8 @@ export default StyleSheet.create({
     width: LHOrigin-40, 
     height: 40, 
     alignItems: 'flex-start', 
-    paddingTop: 10,
-    paddingLeft: 30
+    paddingTop: 7,
+    paddingLeft: 40
   },
   headerTxt: {
     color: '#fff', 
@@ -51,7 +51,7 @@ export default StyleSheet.create({
   headerLeftBtn: {
     position: 'absolute', 
     left: 20, 
-    top: 10,
+    top: 5,
     flexDirection: 'row'
   },
   headerRightBtn: {

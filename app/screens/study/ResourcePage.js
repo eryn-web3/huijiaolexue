@@ -15,17 +15,22 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,
+  Animated,
+  BackHandler
 } from 'react-native';
 import SplashScreen from 'react-native-splash-screen'
 import Entypo from 'react-native-vector-icons/Entypo';
 import Fontisto from 'react-native-vector-icons/Fontisto';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import Feather from 'react-native-vector-icons/Feather';
 import HJ_Utils from '../../utils/HJUtils'
 import { WebView } from 'react-native-webview';
 import Orientation from 'react-native-orientation-locker';
 import QRCode from 'react-native-qrcode-svg';
 import RNFetchBlob from 'rn-fetch-blob';
+import Toast from 'react-native-simple-toast';
+// import { Toast } from 'native-base';
 
 // custom component
 import Loading from '../../components/common/Loading';
@@ -78,8 +83,10 @@ class ResourcePage extends React.Component {
       visibleShareModal: false,
       visibleQRModal: false,
       usageData: null,
-      contentData: null
+      contentData: null,
+      fadeAnim: new Animated.Value(1)
     }
+
 
   }
 
@@ -90,6 +97,7 @@ class ResourcePage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToLandscapeLeft();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
 
     var storage = await HJ_Utils.getStorage()
 
@@ -128,17 +136,24 @@ class ResourcePage extends React.Component {
       }
     }
 
-    this.setState({
-      loading: false,
-      usageData: contentInfo.data.usageData,
-      contentData: contentInfo.data.contentData[0],
-      storage: storage,
-      isDownload: isDownload
-    })
+    if( HJ_Utils.checkValid( contentInfo ) ){
+      this.setState({
+        loading: false,
+        usageData: contentInfo.data.usageData,
+        contentData: contentInfo.data.contentData[0],
+        storage: storage,
+        isDownload: isDownload
+      })
+    } else {
+      this.setState({
+        loading: false,
+        storage: storage,
+        isDownload: isDownload
+      })
+    }
+    
   }
 
-
-  componentWillReceiveProps
 
   /**
    * @method componentWillUnmount
@@ -146,8 +161,16 @@ class ResourcePage extends React.Component {
    */
   async componentWillUnmount() {
     Orientation.lockToPortrait();
+    this.backHandler.remove()
   }
 
+
+  handleBackPress = () => {
+    this.props.navigation.goBack(); // works best when the goBack is async
+    return true;
+  }
+
+  
 
   async onFavorite( resource ) {
     HJ_Utils.log(5, "-- ResourcePage onFavorite start : ");
@@ -256,6 +279,11 @@ class ResourcePage extends React.Component {
 
 
   async onDownload() {
+    if( this.state.isDownload == true ){
+      Toast.show('已加入缓存');
+      return;
+    }
+
     var dirs = RNFetchBlob.fs.dirs.DocumentDir;
     var url = config.base_url + this.state.contentData.content_path;
     var ext = '';
@@ -293,7 +321,16 @@ class ResourcePage extends React.Component {
     }
     
     if( ext == '' ){
-      HJ_Utils.alert('Error', '资源无效。');
+      // HJ_Utils.alert('Error', '资源无效。');
+      Toast.show('资源无效。');
+      // Toast.show({
+      //   text: '资源无效。',
+      //   buttonText: 'Okay',
+      //   type: "error",
+      //   style: {
+      //     backgroundColor: "rgba(0,0,0,0.7)"
+      //   }
+      // });
       this.setState({
         loading: false
       });
@@ -316,7 +353,16 @@ class ResourcePage extends React.Component {
       this.setState({
         loading: false
       });
-      HJ_Utils.alert('', '下载失败了！');
+      Toast.show('下载失败了！');
+      // HJ_Utils.alert('', '下载失败了！');
+      // Toast.show({
+      //   text: '下载失败了！',
+      //   type: "error",
+      //   buttonText: 'Okay',
+      //   style: {
+      //     backgroundColor: "rgba(0,0,0,0.7)"
+      //   }
+      // });
       return;
     })
 
@@ -334,13 +380,47 @@ class ResourcePage extends React.Component {
       loading: false,      
       isDownload: true
     });
-
-    HJ_Utils.alert('', '下载成功了！');
+    Toast.show('已加入缓存');
+    // Toast.show({
+    //   text: '下载成功了！',
+    //   buttonText: 'Okay',
+    //   type: "success",
+    //   style: {
+    //     backgroundColor: "rgba(0,0,0,0.7)"
+    //   }
+    // });
   }
 
   
+  onHeaderShow(){
+    if( HJ_Utils.checkValid( this.timer ) ){
+      clearTimeout( this.timer );
+      this.timer = null;
+    }
+    Animated.timing(this.state.fadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true
+    }).start();
+
+    var that = this;
+    this.timer = setTimeout(()=>{
+      that.onHeaderHide();
+    }, 2000)
+  }
+
+
+  onHeaderHide(){
+    Animated.timing(this.state.fadeAnim, {
+      toValue: 0,
+      duration: 1000,
+      useNativeDriver: true
+    }).start();
+  }
+
+
   render() {
-    var { resource, visibleShareModal, visibleQRModal, usageData, storage, isDownload } = this.state;
+    var { resource, visibleShareModal, visibleQRModal, usageData, storage, isDownload, fadeAnim } = this.state;
 
     var loading = <Text> </Text>;
     if( this.state.loading ){
@@ -395,6 +475,12 @@ class ResourcePage extends React.Component {
 
               if( !event.nativeEvent || !event.nativeEvent.data || event.nativeEvent.data == "undefined" ) {
                 return;
+              }
+
+              console.log('-- data : ', event.nativeEvent.data)
+              var data = JSON.parse( event.nativeEvent.data );
+              if( data.type == 'header_show' ){
+                this.onHeaderShow();
               }
             }}
             onNavigationStateChange={navState => {
@@ -452,11 +538,13 @@ class ResourcePage extends React.Component {
           {loading}
         </View>
 
-        <View style={styles.header}>
+        <Animated.View style={[styles.header, {
+          opacity: fadeAnim
+        }]}>
           <View style={styles.headerWrap}>
             <Text style={styles.headerTxt}>{resource.title}</Text>
           </View>
-          <TouchableOpacity onPress={()=>{this.props.navigation.goBack()}} style={styles.headerLeftBtn}>
+          <TouchableOpacity onPress={()=>{this.props.navigation.goBack()}} style={[styles.headerLeftBtn, {width: 30, height: 30, alignItems: 'center', justifyContent: 'center'}]}>
             <Entypo name="chevron-thin-left" size={20} color="#fff"></Entypo>
           </TouchableOpacity>         
 
@@ -467,12 +555,12 @@ class ResourcePage extends React.Component {
             <AntDesign name="like1" size={20} color={isLike ? "#ff0":"#fff"}></AntDesign>
           </TouchableOpacity>    
           <TouchableOpacity onPress={this.onDownload.bind(this)} style={[styles.headerRightBtn, {right: 90, paddingTop: 2}]}>
-            <Fontisto name="share" size={17} color={isDownload ? "#ff0":"#fff"}></Fontisto>
+            <Feather name="download" size={20} color={isDownload ? "#ff0":"#fff"}></Feather>
           </TouchableOpacity>    
           <TouchableOpacity onPress={this.onFavorite.bind(this, resource)} style={[styles.headerRightBtn, {right: 130, zIndex: 10000}]}>
             <FontAwesome name="star" size={20} color={isFavorite ? "#ff0":"#fff"}></FontAwesome>
           </TouchableOpacity>         
-        </View>
+        </Animated.View>
 
       </View>
     );

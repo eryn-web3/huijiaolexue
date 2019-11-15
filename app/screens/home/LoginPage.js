@@ -86,7 +86,8 @@ class LoginPage extends React.Component {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        id: uniqueId
+        id: uniqueId,
+        type: Platform.OS
       })
     }).then(async data => {       
       var ret = await data.json();      

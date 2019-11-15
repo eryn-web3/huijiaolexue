@@ -15,6 +15,8 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,
+  FlatList,
+  BackHandler
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Entypo';
 import HJ_Utils from '../../utils/HJUtils'
@@ -64,6 +66,7 @@ class DownloadPage extends React.Component {
     this.state = {
       loading: true,
       downloads: [], 
+      curPage: 0
     }
 
   }
@@ -75,13 +78,32 @@ class DownloadPage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
+
+    var { downloads, curPage } = this.state;  
 
     var storage = await HJ_Utils.getStorage();
+    downloads = storage.downloads.slice(0, config.pageCount);
 
     this.setState({
-      downloads: storage.downloads, 
+      downloads: downloads, 
       loading: false
     })
+  }
+
+
+  /**
+   * @method componentWillUnmount
+   * @description This function is called component is loaded.
+   */
+  async componentWillUnmount() {
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    this.props.navigation.goBack(); // works best when the goBack is async
+    return true;
   }
 
 
@@ -96,6 +118,35 @@ class DownloadPage extends React.Component {
     }
   }
 
+
+  async onLoadMoreItems(){
+    var { downloads, curPage } = this.state;    
+    var storage = await HJ_Utils.getStorage();
+
+    var itemCounts = (curPage+1)*config.pageCount;
+    downloads = storage.downloads.slice(0, itemCounts);
+
+    this.setState({
+      downloads: downloads
+    })
+  }
+
+
+  makeElem( download ){
+    var resource = download.resource
+    return <TouchableOpacity style={styles.resourceBtn} onPress={this.playWith.bind(this, download)}>          
+            <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
+            <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
+              <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
+              <View style={styles.resourceDesc}>
+                <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
+                <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
+              </View>
+              <Text style={styles.resourceTimeTxt}>{resource.update_time}</Text>
+            </View>                          
+          </TouchableOpacity>
+  }
+
   
   render() {
     var { downloads } = this.state;    
@@ -105,23 +156,23 @@ class DownloadPage extends React.Component {
       loading = <Loading type="full"/>;
     }
 
-    var resourceElems = [];
-    for( var i=0; i<downloads.length; i++ ){
-      var resource = downloads[i].resource;
-      var resourceElem = <TouchableOpacity key={'resource' + i} style={styles.resourceBtn} onPress={this.playWith.bind(this, downloads[i])}>          
-                          <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
-                          <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
-                            <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
-                            <View style={styles.resourceDesc}>
-                              <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
-                              <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
-                            </View>
-                            <Text style={styles.resourceTimeTxt}>{resource.update_time}</Text>
-                          </View>                          
-                        </TouchableOpacity>
+    // var resourceElems = [];
+    // for( var i=0; i<downloads.length; i++ ){
+    //   var resource = downloads[i].resource;
+    //   var resourceElem = <TouchableOpacity key={'resource' + i} style={styles.resourceBtn} onPress={this.playWith.bind(this, downloads[i])}>          
+    //                       <Image source={{uri: config.base_url + resource.icon_path}} style={styles.resourceImg}/>
+    //                       <View style={{height: 105, width: LW-140-30, marginLeft: 10}}>
+    //                         <Text style={styles.resourceTitleTxt}>{resource.title}</Text>
+    //                         <View style={styles.resourceDesc}>
+    //                           <Text style={styles.resourceDescTxt}>{resource.subject}</Text>
+    //                           <Text style={[styles.resourceDescTxt, {marginLeft: 30}]}>{resource.term}</Text>
+    //                         </View>
+    //                         <Text style={styles.resourceTimeTxt}>{resource.update_time}</Text>
+    //                       </View>                          
+    //                     </TouchableOpacity>
 
-      resourceElems.push( resourceElem );
-    }    
+    //   resourceElems.push( resourceElem );
+    // }    
 
     return (
       <View style={{width: LW, height:LH, flex: 1}}>
@@ -137,14 +188,21 @@ class DownloadPage extends React.Component {
           </TouchableOpacity>                  
         </View>
         
-        <ScrollView style={styles.mainContent}>
-
-          <View style={styles.resourceSectionElems}>
-            {resourceElems}
-          </View>
-
-        </ScrollView>
-        
+        <View style={styles.mainContent}>
+          <FlatList 
+            style={styles.resourceSectionElems}
+            onEndReached={this.onLoadMoreItems}
+            onEndReachedThreshold={0.01}
+            keyExtractor={(item, index)=>''+item.id}
+            data={downloads}
+            renderItem={({item})=>this.makeElem(item)}
+            bounces={false}
+            ListEmptyComponent={()=>
+              <View style={styles.emptyList}>
+                <Text style={styles.emptyListTxt}>没有资源</Text>
+              </View>}
+          />
+        </View>        
 
         <View style={[styles.loading, {display: this.state.loading ? 'flex' : 'none', zIndex: this.state.loading ? 10000 : -1}]}>
           {loading}

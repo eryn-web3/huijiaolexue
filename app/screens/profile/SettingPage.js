@@ -15,6 +15,7 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,
+  BackHandler
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Entypo';
 import AntDesign from 'react-native-vector-icons/AntDesign';
@@ -76,12 +77,28 @@ class SettingPage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
 
     var storage = await HJ_Utils.getStorage()
 
     this.setState({
       nameTxt: storage.user.userName
     })
+  }
+
+
+  /**
+   * @method componentWillUnmount
+   * @description This function is called component is loaded.
+   */
+  async componentWillUnmount() {
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    this.props.navigation.goBack(); // works best when the goBack is async
+    return true;
   }
 
 

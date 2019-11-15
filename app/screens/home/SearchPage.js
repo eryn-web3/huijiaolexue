@@ -15,7 +15,8 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,  
-  InteractionManager
+  InteractionManager,
+  BackHandler
 } from 'react-native';
 import SplashScreen from 'react-native-splash-screen'
 import Icon from 'react-native-vector-icons/AntDesign';
@@ -79,6 +80,23 @@ class SearchPage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
+
+  }
+
+
+  /**
+   * @method componentWillUnmount
+   * @description This function is called component is loaded.
+   */
+  async componentWillUnmount() {
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    this.props.navigation.goBack(); // works best when the goBack is async
+    return true;
   }
 
 

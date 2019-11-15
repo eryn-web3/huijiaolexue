@@ -15,6 +15,7 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,
+  BackHandler
 } from 'react-native';
 import SplashScreen from 'react-native-splash-screen'
 import Icon from 'react-native-vector-icons/AntDesign';
@@ -24,6 +25,7 @@ import Orientation from 'react-native-orientation-locker';
 import DeviceInfo from 'react-native-device-info';
 import Entypo from 'react-native-vector-icons/Entypo';
 import RNFetchBlob from 'rn-fetch-blob';
+import { NavigationActions } from 'react-navigation';
 
 // custom component
 import Loading from '../../components/common/Loading';
@@ -72,6 +74,8 @@ class ProfilePage extends React.Component {
       cacheSize: 0
     }
 
+    this.handleBackPress = this.handleBackPress.bind(this)
+
   }
 
 
@@ -81,6 +85,7 @@ class ProfilePage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();    
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
 
     this.getCacheSize();
 
@@ -115,6 +120,29 @@ class ProfilePage extends React.Component {
       userName: ret.data.userInfo.user_nickname,
       loading: false
     })
+  }
+
+
+  /**
+   * @method componentWillUnmount
+   * @description This function is called component is loaded.
+   */
+  async componentWillUnmount() {
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    console.log('-- handleBackPress', NavigationActions)
+    // const resetAction = NavigationActions.reset({
+    //   index: 0,
+    //   actions: [
+    //     NavigationActions.navigate({ routeName: 'Main'})
+    //   ]
+    // });
+    this.props.navigation.dispatch({type: 'Reset', index: 0, actions: [{ type: 'Navigate', routeName:'ProfilePage'}]})
+    this.props.navigation.navigate('HomePage')
+    return true;
   }
 
 
@@ -183,7 +211,7 @@ class ProfilePage extends React.Component {
         <View style={styles.mainContent}>
           
           <View style={{backgroundColor: '#fff', paddingTop: 70, paddingBottom: 70, borderBottomWidth: 1, borderBottomColor: '#ddd'}}>
-            <Text style={{fontSize: 16, color: '#333', textAlign: 'center'}}>{userName}</Text>
+            <Text style={{fontSize: 16, color: '#333', paddingLeft: 100}}>{userName}</Text>
             <View style={{position: 'absolute', top: 40, left: 20}}>
               <Image source={require('../../assets/images/head.png')} style={{width: 70, height: 70, borderRadius: 35}} />
             </View>
@@ -193,7 +221,7 @@ class ProfilePage extends React.Component {
           </View>
           
           <View style={{flexDirection: 'row', backgroundColor: '#fff', marginTop: 10, paddingVertical: 50, borderBottomWidth: 1, borderBottomColor: '#ddd', alignItems: 'center'}}>
-            <TouchableOpacity style={{width: LW/3, alignItems:'center'}} onPress={()=>{this.props.navigation.navigate('FavoritePage')}}>
+            <TouchableOpacity style={{width: LW/3, alignItems:'center'}} onPress={()=>{console.log('---- ----'); this.props.navigation.navigate('FavoritePage')}}>
               <Image source={require('../../assets/images/005shoucang.png')} style={{width: 35, height: 35}} />
               <Text style={{fontSize: 18, color: '#666', marginTop: 10}}>我的收藏</Text>
             </TouchableOpacity>

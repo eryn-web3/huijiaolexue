@@ -15,6 +15,7 @@ import {
   StatusBar,
   AsyncStorage,
   Alert,
+  BackHandler
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Entypo';
 import HJ_Utils from '../../utils/HJUtils'
@@ -75,6 +76,8 @@ class CourseTypePage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
+
 
     var id = this.props.navigation.state.params;
     HJ_Utils.log(5, "-- CourseTypePage componentDidMount id : ", id);
@@ -105,6 +108,21 @@ class CourseTypePage extends React.Component {
       title: courseTypeInfo.data.coursetypeData[0].title,
       loading: false
     })
+  }
+
+
+  /**
+   * @method componentWillUnmount
+   * @description This function is called component is loaded.
+   */
+  async componentWillUnmount() {
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    this.props.navigation.goBack(); // works best when the goBack is async
+    return true;
   }
 
 

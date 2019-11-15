@@ -16,7 +16,7 @@ import {
   AsyncStorage,
   Alert,
   Button,
-  
+  BackHandler
 } from 'react-native';
 import SplashScreen from 'react-native-splash-screen'
 import Icon from 'react-native-vector-icons/Entypo';
@@ -95,6 +95,7 @@ class StudyPage extends React.Component {
    */
   async componentDidMount() {
     Orientation.lockToPortrait();
+    this.backHandler = BackHandler.addEventListener('hardwareBackPress', this.handleBackPress);
 
     var info = await fetch(config.api_url+'/getSubjectInfo', {
       method: 'POST',
@@ -155,6 +156,14 @@ class StudyPage extends React.Component {
     if( HJ_Utils.checkValid( this.focusListener ) ){
       this.focusListener.remove();
     }    
+    this.backHandler.remove()
+  }
+
+
+  handleBackPress = () => {
+    this.props.navigation.dispatch({type: 'Reset', index: 0, actions: [{ type: 'Navigate', routeName:'StudyPage'}]})
+    this.props.navigation.navigate('HomePage')
+    return true;
   }
 
 
@@ -228,15 +237,21 @@ class StudyPage extends React.Component {
     });
     HJ_Utils.log(5, "-- StudyPage selectTerm info : ", info);
     
-    this.createCourseTypeElems(info.data.courseTypeData, info.data.contentData);
+    if( HJ_Utils.checkValid( info ) ){
+      this.createCourseTypeElems(info.data.courseTypeData, info.data.contentData);
 
-    this.setState({
-      courseTypeData: info.data.courseTypeData,       
-      contentData: info.data.contentData, 
-      activeTermIndex: index,
-      visibleSubjectModal: false,
-      loading: false
-    })
+      this.setState({
+        courseTypeData: info.data.courseTypeData,       
+        contentData: info.data.contentData, 
+        activeTermIndex: index,
+        visibleSubjectModal: false,
+        loading: false
+      })
+    } else {
+      this.state({
+        loading: false
+      })
+    }
   }
 
 
